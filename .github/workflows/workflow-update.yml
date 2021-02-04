@@ -1,0 +1,147 @@
+name: update-infrastructure
+on: 
+  workflow_dispatch:
+    inputs:
+      docker-image-tag:
+        description: 'This is the docker image tag built in the code workflow'     
+        required: true
+      code-branch:
+        description: 'branch of code repo'
+        required: true
+      code-repo: 
+        description: 'name of code repo'
+        required: true
+      tier: 
+        description: 'the tier of the code repo'
+        required: true
+      docker-frontend-repo:
+        description: 'the repo name on dockerhub for the frontend image'
+        required: true
+      docker-backend-repo:
+        description: 'the repo name on dockerhub for the backend image'
+        required: true
+      default-input-flag:
+        description: 'it specifies where to fetch input.yaml file'
+        required: true
+      backup-input-repo:
+        description: 'the repo where backup input.files are stored'
+        required: true
+      
+jobs:
+  update-kustomize:
+    name: Update kustomize
+    runs-on: ubuntu-latest
+    
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Check existence of config.yaml 
+        id: check_file
+        uses: andstor/file-existence-action@v1
+        with:
+          files: "config.yaml"
+      - name: Files don't exist
+        if: steps.check_file.outputs.files_exists == 'false'
+        run: |
+          echo "failed"
+          exit 1
+      
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with: 
+          python-version: "3.x"
+      
+      - run: pip install PyYAML
+        name: Install py dependencies
+      
+      - name: Validation of config file
+        run: python scripts/validation-config-file.py
+
+      - name: Create outputs from config file
+        run: |
+          echo "##[set-output name=app-name;]$(python scripts/create-outputs-from-config.py app-name)"
+          echo "##[set-output name=argocd-repo;]$(python scripts/create-outputs-from-config.py argocd-repo)"
+          echo "##[set-output name=prod-input-master;]$(python scripts/create-outputs-from-config.py prod-input-master)"
+        id: from-config
+        
+      - name: set environment variables
+        uses: allenevans/set-env@v2.0.0
+        with:
+          DOCKER_IMAGE_TAG: ${{ github.event.inputs.docker-image-tag}}
+          CODE_BRANCH:  ${{ github.event.inputs.code-branch}}
+          CODE_REPO: ${{ github.event.inputs.code-repo}}
+          TIER: ${{ github.event.inputs.tier}}
+          DOCKER_BACKEND_REPO: ${{ github.event.inputs.docker-backend-repo}}
+          DOCKER_FRONTEND_REPO: ${{ github.event.inputs.docker-frontend-repo}}
+          DOCKER_USER: ${{secrets.DOCKER_USERNAME}}
+          APP_NAME: ${{steps.from-config.outputs.app-name}}
+          PROD_INPUT_MASTER: ${{steps.from-config.outputs.prod-input-master}}
+      
+      - name: Checkout code repo
+        if: github.event.inputs.default-input-flag == 'false'
+        uses: actions/checkout@v2
+        with:
+            repository: ${{ github.repository_owner }}/${{ github.event.inputs.code-repo}}
+            token: ${{secrets.PAT_TOKEN}}
+            ref: ${{ github.event.inputs.code-branch}}
+            path: other-repo
+      
+      - name: Checkout backup input repo
+        if: github.event.inputs.default-input-flag == 'true'
+        uses: actions/checkout@v2
+        with:
+            repository: ${{ github.repository_owner }}/${{ github.event.inputs.backup-input-repo }}
+            token: ${{secrets.PAT_TOKEN}}
+            ref: master
+            path: other-repo
+
+      - if: github.event.inputs.default-input-flag == 'false'
+        run: cp other-repo/input.yaml ./input.yaml
+      
+      - if: github.event.inputs.default-input-flag == 'true'
+        run: |
+          var="${{github.event.inputs.code-branch}}"
+          if grep -q "master" <<< "$var"; then
+          cp other-repo/default-input-files/prod/input.yaml ./input.yaml
+          elif grep -q "features" <<< "$var"; then
+          cp other-repo/default-input-files/feature/input.yaml ./input.yaml
+          elif grep -q "releases" <<< "$var"; then
+          cp other-repo/default-input-files/release/input.yaml ./input.yaml
+          fi
+      
+      - name: Set the correct branch name in input.yaml
+        if: github.event.inputs.default-input-flag == 'true'
+        run: python scripts/update-branch-name.py
+
+      - name: Create kustomize overlays dir, if necessary
+        run: python scripts/overlays-dir-creation.py
+        
+      - run: python scripts/update-overlays.py
+        name: Run python script, update kustomize overlays
+        
+      - run: python scripts/update-docker-img.py
+        name: Run update docker image
+      
+      - run: rm -f input.yaml
+        
+      - run: rm -rf other-repo/
+
+      - name: Add and commit changes
+        uses: EndBug/add-and-commit@v6
+        with:
+          message: 'updated kustomize files'
+  
+      
+      - name: Trigger infrastructure repo workflow
+        if: ${{ github.event.inputs.code-branch}} != 'master' || ( ${{steps.from-config.outputs.prod-input-master}} == 'backend' && ${{ github.event.inputs.tier}} == 'backend' )
+            || ( ${{steps.from-config.outputs.prod-input-master}} == 'frontend' && ${{ github.event.inputs.tier}} == 'frontend' )
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: update-manifest
+          ref: master
+          inputs: '{"code-branch" : "${{ github.event.inputs.code-branch}}", "tier" : "${{ github.event.inputs.tier}}", "code-repo" : "${{github.event.inputs.code-repo}}", "app-name" : "${{steps.from-config.outputs.app-name}}", "default-input-flag" : "${{github.event.inputs.default-input-flag}}", "backup-input-repo" : "${{github.event.inputs.backup-input-repo}}" }'
+          repo: ${{ github.repository_owner }}/${{ steps.from-config.outputs.argocd-repo}}
+          token: ${{ secrets.PAT_TOKEN }}
+
