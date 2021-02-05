@@ -10,6 +10,8 @@ def main():
   image_tag = os.environ["DOCKER_IMAGE_TAG"]
 
   if "master" in code_branch:
+    if "prod" not in os.listdir("kustomize/overlays/"):
+      return
     kustomization_path = "kustomize/overlays/prod/kustomization.yaml"
   else: 
     kustomization_path = "kustomize/overlays/"+tier+"/"+code_branch+"/kustomization.yaml"
