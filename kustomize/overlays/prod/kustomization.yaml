@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 images:
 - name: backend
   newName: mattedamo26/thesis-demo-backend
-  newTag: d9968342c3d574fb10c33ba374ed056cdb448fbe-prod
+  newTag: 60298035a273324d409cfa507ac3bc2aafb9a833-prod
 - name: frontend
   newName: mattedamo26/thesis-demo-frontend
   newTag: latest-prod
