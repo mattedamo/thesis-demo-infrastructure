@@ -21,9 +21,9 @@ def main():
               f = yaml.load(file, Loader=yaml.FullLoader)
           if f["kind"] == "Deployment":
               if f["spec"]["template"]["metadata"]["labels"]["tier"] == "frontend":
-                imageNameFrontend = f["spec"]["template"]["spec"]["containers"][0]["name"]
+                imageNameFrontend = f["spec"]["template"]["spec"]["containers"][0]["image"].split(":")[0]
               elif f["spec"]["template"]["metadata"]["labels"]["tier"] == "backend":
-                imageNameBackend = f["spec"]["template"]["spec"]["containers"][0]["name"]
+                imageNameBackend = f["spec"]["template"]["spec"]["containers"][0]["image"].split(":")[0]
   with open(kustomization_path) as file:
       kustomization = yaml.load(file, Loader=yaml.FullLoader)
   
