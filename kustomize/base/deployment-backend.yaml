@@ -17,7 +17,7 @@ spec:
         tier: backend
     spec:
       containers:
-        - image: mattedamo26/first-attempt-backend:latest-prod 
+        - image: mattedamo26/thesis-demo-backend:latest-prod 
           name: backend
           imagePullPolicy: Always
           ports:

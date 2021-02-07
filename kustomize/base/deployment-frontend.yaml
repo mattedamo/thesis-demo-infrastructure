@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: "mattedamo26/first-attempt-frontend:latest-prod"
+        image: "mattedamo26/thesis-demo-frontend:latest-prod"
         imagePullPolicy: Always        
         ports:
           - containerPort: 80
