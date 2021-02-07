@@ -2,10 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 images:
 - name: backend
   newName: mattedamo26/thesis-demo-backend
-  newTag: 60298035a273324d409cfa507ac3bc2aafb9a833-prod
+  newTag: latest-prod
 - name: frontend
   newName: mattedamo26/thesis-demo-frontend
-  newTag: latest-prod
+  newTag: 859e896f9c7b15d31e44ef7a5fb2681b5ca9c309-prod
 kind: Kustomization
 namespace: thesis-demo-prod
 patches:
