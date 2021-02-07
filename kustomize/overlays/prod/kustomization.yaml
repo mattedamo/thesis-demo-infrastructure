@@ -3,7 +3,7 @@ images:
 - name: mattedamo26/thesis-demo-backend
   newTag: latest-prod
 - name: mattedamo26/thesis-demo-frontend
-  newTag: 107b53697d6f9098cb5444f06c897e140fc47e5f-prod
+  newTag: latest-prod
 kind: Kustomization
 namespace: thesis-demo-prod
 patches:
